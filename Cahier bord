@@ -1,0 +1,11 @@
+Historique de travail sur le projet
+
+Vendredi 17/04
+- Découverte du projet
+- Lecture de documentation sur le Bluetooth Low Energy (BLE) et son implémentation dans Android
+- Mise en évidence de problématiques liées à l'application mobile: Comment doit se comporter l'application si on l'a met dans le background du téléphone?
+
+Lundi 20/04
+- Elaboration d'une première version de l'application qui scanne des objects utilisant le BLE
+- Définition du cadre de l'application: pas de compatibilité avant Lollipop qui comporte la majorité des fonctionnalités liées au BLE
+- Demande de permissions à l'exécution
