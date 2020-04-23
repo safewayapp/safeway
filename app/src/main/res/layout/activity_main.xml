@@ -6,49 +6,63 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="match_parent">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hello World!" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="50dp"
-            android:text="Start Scanning"
-            android:id="@+id/startScanning"
-            android:layout_marginTop="40dp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Hello World!" />
 
-        <Button
-        android:layout_width="wrap_content"
-        android:layout_height="50dp"
-        android:text="Stop Scanning"
-        android:id="@+id/stopScanning"
-        android:layout_marginTop="40dp"/>
+            <Button
+                android:id="@+id/startScanning"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginTop="40dp"
+                android:text="Start Scanning" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:id="@+id/count"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:text="Number of devices scanned" />
-        <TextView
-            android:layout_width="wrap_content"
-            android:id="@+id/name"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:text="device name" />
-        <TextView
-            android:layout_width="wrap_content"
-            android:id="@+id/address"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:text="device address" />
+            <Button
+                android:id="@+id/stopScanning"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginTop="40dp"
+                android:text="Stop Scanning" />
 
-    </LinearLayout>
+            <Button
+                android:id="@+id/advertising"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginTop="40dp"
+                android:text="Start advertising" />
+
+            <TextView
+                android:id="@+id/count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:text="Number of devices scanned" />
+
+            <TextView
+                android:id="@+id/name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:text="device name" />
+
+            <TextView
+                android:id="@+id/address"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:text="device address" />
+
+        </LinearLayout>
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

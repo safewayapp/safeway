@@ -9,3 +9,17 @@ Lundi 20/04
 - Elaboration d'une première version de l'application qui scanne des objects utilisant le BLE
 - Définition du cadre de l'application: pas de compatibilité avant Lollipop qui comporte la majorité des fonctionnalités liées au BLE
 - Demande de permissions à l'exécution
+
+Mardi 21/04
+- Correction de la demande de permissions
+- Echange avec les autres membres du projet pour avoir plus de détails sur l'application attendue
+
+Mercredi 22/04
+- Lecture de documentation sur le BLE et l'advertising. Essai en local d'échange de données avec advertising.
+
+Jeudi 23/04
+- Premier test avec advertising
+- Utilisation de Nrf connect pour tester l'advertising, il fonctionne
+- L'application ne scanne pas tous les devices en dessous de android 5.0, acceptable puisque l'application ne sera disponible qu'à partir d'android 5.0 (lollipop).
+- L'application ne scanne pas non plus les ordinateurs sur Ubuntu, ou certains objets comme les casques audio, ce qui est négligeable.
+

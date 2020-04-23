@@ -4,31 +4,49 @@ import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.AdvertiseCallback;
+import android.bluetooth.le.AdvertiseData;
+import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.ParcelUuid;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import java.util.HashSet;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.UUID;
+
+import static android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY;
 
 public class MainActivity extends AppCompatActivity {
+    String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
+    long SCAN_PERIOD = 6000;
+
     BluetoothManager manager;
     BluetoothAdapter adapter;
     BluetoothLeScanner scanner;
     int count=0;
     Button startScan;
     Button stopScan;
+    Button advertising;
     TextView countField;
     TextView addressField;
     TextView nameField;
@@ -45,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         addressField=findViewById(R.id.address);
         startScan = findViewById(R.id.startScanning);
         stopScan = findViewById(R.id.stopScanning);
+        advertising=findViewById(R.id.advertising);
 
         manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         adapter = manager.getAdapter();
@@ -66,12 +85,12 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(enableBtIntent, ENABLE_BLUETOOTH);
             }
             else { //bluetooth is turned on, continuing
-                resume();
+                buttonListeners();
             }
         }
     }
 
-    public void resume(){
+    public void buttonListeners(){
         startScan.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { //when the start button is clicked, start scanning for BLE devices
                 //check if location services are turned on
@@ -86,7 +105,12 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     //location is turned on, the app can be used
                     scanner = adapter.getBluetoothLeScanner();
-                    startScan();
+                    count=0;
+                    Toast.makeText(MainActivity.this,"start scanning",Toast.LENGTH_SHORT).show();
+
+                    ScanSettings.Builder scanSettings = new ScanSettings.Builder();
+                    scanSettings.setScanMode(SCAN_MODE_LOW_LATENCY);
+                    scanner.startScan(null, scanSettings.build(), scanCallback);
                 }
             }
         });
@@ -94,7 +118,14 @@ public class MainActivity extends AppCompatActivity {
         stopScan.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 //when the stop button is clicked, stop scanning for BLE devices
-                stopScan();
+                scanner.stopScan(scanCallback);
+            }
+        });
+
+        advertising.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sendMessage();
             }
         });
     }
@@ -102,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent result) {
         if (requestCode == ENABLE_BLUETOOTH) {
             if (resultCode == RESULT_OK) { //bluetooth is turned on, continuing
-                resume();
+                buttonListeners();
             } else { //asks again for permission
                 Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
                 startActivityForResult(enableBtIntent, ENABLE_BLUETOOTH);
@@ -120,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                     startActivityForResult(enableBtIntent, ENABLE_BLUETOOTH);
                 }
                 else { //bluetooth is turned on, continuing
-                    resume();
+                    buttonListeners();
                 }
             } else {
                 //the permission is not granted, the app cannot be used
@@ -130,40 +161,99 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void startScan() {
-        count=0;
-        Toast.makeText(this,"start scanning",Toast.LENGTH_SHORT).show();
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                scanner.startScan(scanCallback);
-            }
-        });
-    }
-
-    public void stopScan() {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                scanner.stopScan(scanCallback);
-            }
-        });
-        for (BluetoothDevice s : scannedDevices) {
-            Toast.makeText(MainActivity.this,"device "+s+" found",Toast.LENGTH_SHORT).show();
-            nameField.setText(s.getName());
-            addressField.setText(s.getAddress());
-        }
-
-        countField.setText(String.valueOf(scannedDevices.size()));
-    }
-
-    HashSet<BluetoothDevice> scannedDevices=new HashSet<>(); //stores all the scanned devices
+    SortedSet<ScanResult> scannedDevices=new TreeSet<>(); //stores all the scanned devices
     private ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             //when a BLE device is scanned, add it to the hashset
-            scannedDevices.add(result.getDevice());
+            scannedDevices.add(result);
             count+=1;
+            countField.setText(count);
+            printScanResult(result);
+        }
+
+        public void onBatchScanResults(List<ScanResult> results) {
+            addressField.append("Received " + results.size() + " batch results:\n");
+            for (ScanResult r : results) {
+                printScanResult(r);
+            }
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            switch (errorCode) {
+                case ScanCallback.SCAN_FAILED_ALREADY_STARTED:
+                    nameField.append("Scan failed: already started.\n");
+                    break;
+                case ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED:
+                    nameField.append("Scan failed: app registration failed.\n");
+                    break;
+                case ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED:
+                    nameField.append("Scan failed: feature unsupported.\n");
+                    break;
+                case ScanCallback.SCAN_FAILED_INTERNAL_ERROR:
+                    nameField.append("Scan failed: internal error.\n");
+                    break;
+            }
+        }
+
+        private void printScanResult(ScanResult result) {
+            Iterator it=scannedDevices.iterator();
+            while(it.hasNext()){
+                BluetoothDevice i= (BluetoothDevice) it.next();
+                String id =i.getAddress();
+                nameField.append(" from " + id+ ".\n");
+            }
+        }
+    };
+
+    public boolean checkAdvertising(){
+        return adapter.isMultipleAdvertisementSupported() && adapter.isOffloadedFilteringSupported() && adapter.isOffloadedScanBatchingSupported();
+    }
+
+    public void sendMessage() {
+
+        /*if (adapter == null)
+            editText.setText("bluetooth pas ok");
+        else if (! adapter.isEnabled())
+            editText.setText("bluetooth pas activé");
+        else {
+            editText.setText("bluetooth activé");*/
+            BluetoothLeAdvertiser advertiser = adapter.getBluetoothLeAdvertiser();
+
+            AdvertiseSettings advertiseSettings = new AdvertiseSettings.Builder().setAdvertiseMode( AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY ).setTxPowerLevel( AdvertiseSettings.ADVERTISE_TX_POWER_HIGH ).setTimeout(0).build();
+            Log.i("BLE","start of advertise data after settings");
+
+            UUID SERVICE_UUID = UUID.fromString("0000fe02-0000-1000-8000-00805F9B34FB");
+            if (advertiser == null)
+                addressField.setText("advertiser pas trouvé");
+            else
+                addressField.setText("advertiser trouvé");
+
+            AdvertiseData advertiseData = new AdvertiseData.Builder()
+                .setIncludeDeviceName( true )
+                .setIncludeTxPowerLevel(true)
+                .addServiceData(new ParcelUuid(SERVICE_UUID), "D".getBytes() )
+                .build();
+
+            Log.d("ERROR", addressField.getText().toString());
+            if(!checkAdvertising()){
+                Toast.makeText(this,"ERROR ADVERTISING NOT SUPPORTED", Toast.LENGTH_SHORT).show();
+            }
+            advertiser.startAdvertising(advertiseSettings, advertiseData, advertisingCallback);
+        }
+
+
+    private AdvertiseCallback advertisingCallback = new AdvertiseCallback() {
+        @Override
+        public void onStartFailure(int errorCode) {
+            Log.d("ERROR", String.format("Advertisement failure (code %d)", errorCode));
+        }
+
+        @Override
+        public void onStartSuccess(AdvertiseSettings settingsInEffect) {
+            Log.d("ERROR", "Advertisement started");
+
         }
     };
 }
