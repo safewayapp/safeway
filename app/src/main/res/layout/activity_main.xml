@@ -15,27 +15,15 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <TextView
+            <CheckBox
+                android:id="@+id/contagion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Hello World!" />
-
-            <Button
-                android:id="@+id/startScanning"
-                android:layout_width="wrap_content"
-                android:layout_height="50dp"
-                android:layout_marginTop="40dp"
-                android:text="Start Scanning" />
-
-            <Button
-                android:id="@+id/stopScanning"
-                android:layout_width="wrap_content"
-                android:layout_height="50dp"
-                android:layout_marginTop="40dp"
-                android:text="Stop Scanning" />
+                android:text="Positif au Covid-19" />
 
             <Button
                 android:id="@+id/advertising"
+                android:onClick="sendMessage"
                 android:layout_width="wrap_content"
                 android:layout_height="50dp"
                 android:layout_marginTop="40dp"
@@ -54,13 +42,6 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="40dp"
                 android:text="device name" />
-
-            <TextView
-                android:id="@+id/address"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="40dp"
-                android:text="device address" />
 
         </LinearLayout>
     </ScrollView>
