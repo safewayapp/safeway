@@ -27,4 +27,14 @@ Vendredi 24/04
 - Test localisation avec RSSI: très approximatif, surtout que la fonction pour récupérer le TXpower n'est pas disponible en dehors des dernières versions d'android
 - piste de réflexion: calcul de distance avec une constante (encore plus approximatif) pour les autres versions? application disponible que sur les téléphones les plus récents? pose problème pour le besoin d'un grand nombre d'utilisateurs
 - Ajout checkbox positif au Covid-19, envoi de la valeur par advertising.
+- Quand l'application scanne un device on cherche le service contenant la valeur de la checkbox. Si elle est positive, le téléphone vibre pour avertir l'utilisateur.
 - Première version de l'app quasi fonctionnelle, manque un système de session pour garder le compte des devices rencontrés
+
+Lundi 27/04
+- Test du filtre de Kalman pour améliorer la localisation, résultats non conclusifs, il faudra faire plus de recherche sur le sujet
+- Relance l'advertising à chaque changement sur la checkbox
+- Utilisation d'un handler pour relancer le scan toutes les 25 min (android 8 stop les scans au bout de 30 min) 
+- Ajout de filtres pour le scan sur le service recherché (ne scanne pas tous les appareils qui n'advertisent pas le service recherché)
+- Gestion des duplicatas pour le scan: suppression en dessous de 7 secondes (temps approximatif estimé pour dépasser la personne rencontrée)
+- Compte de personnes rencontrées gardé en mémoire avec SharedPreference
+- Gestion du cycle de vie de l'application: stop du scan si l'application est mise en arrière plan et de l'advertising si elle est arrêtée
