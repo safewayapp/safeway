@@ -38,3 +38,25 @@ Lundi 27/04
 - Gestion des duplicatas pour le scan: suppression en dessous de 7 secondes (temps approximatif estimé pour dépasser la personne rencontrée)
 - Compte de personnes rencontrées gardé en mémoire avec SharedPreference
 - Gestion du cycle de vie de l'application: stop du scan si l'application est mise en arrière plan et de l'advertising si elle est arrêtée
+
+Mardi 28/04
+- Test de l'application sur d'autres appareils (téléphones plus récents, test avec les cartes ESP32). Scénario communication appli/appli fonctionne, mais pour boîtier/appli l'appli ne lit pas les données envoyées par les ESP32 et ne les scanne pas (l'inverse se fait correctement)
+- Correction de petits détails comme l'ajout du nom du device dans les paquets envoyés par advertisement.
+
+Mercredi 29/04
+- Tentative de correction de l'estimation du txpower -> échec, en dessous de Android API 26 le txpower trouvé dans scanrecord est à min int -> il n'est pas défini
+- Gestion des exceptions
+
+Jeudi 30/04
+- Test plus extensif de l'application sur d'autres appareils en affichant tous les appareils scannés par bluetooth. non conclusif, l'application n'affiche rien sur les téléphones des autres membres du groupe
+
+Vendredi 1/05
+- Mise en évidence du fonctionnement de l'application sur les téléphones Android plus ancien, et du non fonctionnement sur android 10
+- Ajout de permissions pour android 10, l'application ne fonctionne toujours pas. besoin de feedback sur les erreurs
+- Ajout de filtre sur le nom des devices
+- Test de filtre sur l'UUID du service -> échec, le payload d'advertising est trop gros si on rajoute l'UUID
+
+Lundi 4/05
+- Correction de problèmes de crash au démarrage
+- Ajout de vérification de permissions pour android 10, à vérifier
+- Meilleure gestion du cycle de vie: arrêt du scan quand l'application n'est plus au premier plan
