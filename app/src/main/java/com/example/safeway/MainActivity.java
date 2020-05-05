@@ -1,6 +1,7 @@
 package com.example.safeway;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -25,55 +26,49 @@ import android.os.Handler;
 import android.os.ParcelUuid;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 import static android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY;
 
 public class MainActivity extends AppCompatActivity {
     long WAIT_PERIOD = 25*60*1000; //25 minutes, scanning time
-    long DELAY=7*1000;//7 seconds, wait time for devices that have already been scanned
+    long DELAY=10*1000;//10 seconds, wait time for devices that have already been scanned
 
     static int maxdistance=25; //distance for scan
-    BluetoothManager manager;
     BluetoothAdapter adapter;
     BluetoothLeScanner scanner;
     BluetoothLeAdvertiser advertiser;
     ScanSettings.Builder scanSettings;
 
-    HashMap<BluetoothDevice,Long> scannedDevices = new HashMap<>(); //map of scanned devices and the time at which they were last seen
+    HashMap<BluetoothDevice,Long[]> scannedDevices = new HashMap<>(); //map of scanned devices and the time at which they were last seen
+    HashMap<String,String> savedDevice=new HashMap<>();
+
     int count=0; //number of encountered devices
 
     CheckBox positif;
-    Button advertising;
     TextView countField;
     TextView nameField;
     TextView advField;
     TextView rcvField;
     Handler handler;
-
     Vibrator vibrator;
 
-    boolean enabled=true; //bluetooth/location enabled
-
-    private final static int ENABLE_BLUETOOTH = 1;
-    private static final int REQUEST_LOCATION = 2;
-    private static final int REQUEST_BACKGROUND_LOCATION = 3;
 
     public static final UUID SERVICE_UUID = UUID.fromString("0000483e-0000-1000-8000-00805f9b34fb"); //UUID for advertising
 
@@ -88,166 +83,55 @@ public class MainActivity extends AppCompatActivity {
         positif=findViewById(R.id.contagion);
         countField=findViewById(R.id.count);
         nameField=findViewById(R.id.name);
-        advertising=findViewById(R.id.advertising);
         advField=findViewById(R.id.adv_text);
         rcvField=findViewById(R.id.receiv_text);
-
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) { //checking if the phone can use BLE; if not stops the app
-            Toast.makeText(this.getApplicationContext(), "Bluetooth low energy is not supported", Toast.LENGTH_SHORT).show();
-            finish();
-        }
-
-        manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        if (manager == null) {
-            System.out.println("ERROR BLUETOOTH NOT SUPPORTED");
-            finish();
-        }
-        adapter = manager.getAdapter();
-
-        if (adapter == null || !adapter.isEnabled()) { //checking if bluetooth is turned off, then asks for activation
-            enabled=false;
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, ENABLE_BLUETOOTH);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { //if the phone is version Marshmallow or higher it needs location permissions and runtime checks
-            enabled=false;
-            checkLocation();
-        }
     }
 
-    @RequiresApi(23)
-    public void checkLocation(){
-        boolean permission=ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!permission) { //permission for location is not granted
-            //requests the permission to the user
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
-        }
-        else { //permission is already granted, checking if location is turned on
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){ //if phone is android 10 or higher, also checks for background permission
-                checkBackgroundLocation();
-            }
-            else {
-                boolean gps, network;
-                LocationManager locationManager = (LocationManager) MainActivity.this.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-                if (locationManager == null) {
-                    Toast.makeText(this, "Error with location manager", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                gps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-                network = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-                enabled = gps && network;
-            }
-        }
-    }
-
-    @RequiresApi(29)
-    public void checkBackgroundLocation(){
-        boolean permission=ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!permission) { //permission for background location is not granted
-            //requests the permission to the user
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, REQUEST_BACKGROUND_LOCATION);
-        }
-        else { //permission is already granted, checking if location is turned on
-            boolean gps, network;
-            LocationManager locationManager = (LocationManager) MainActivity.this.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-            if(locationManager==null){
-                Toast.makeText(this,"Error with location manager",Toast.LENGTH_SHORT).show();
-                return;
-            }
-            gps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-            network = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-            enabled=gps&&network;
-        }
-    }
-
-    public void onActivityResult(int requestCode, int resultCode, Intent result) {
-        super.onActivityResult(requestCode, resultCode, result);
-        if (requestCode == ENABLE_BLUETOOTH) {
-            if (resultCode == RESULT_OK) { //bluetooth is turned on, now checking for location if the phone requires it
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { //if the phone is version Marshmallow or higher it needs location permissions and runtime checks
-                    checkLocation();
-                }
-                else {
-                    enabled = true;
-                }
-            } else { //asks again for permission
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, ENABLE_BLUETOOTH);
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        //callback for when the location permission is asked to the user
-        if(requestCode == REQUEST_LOCATION) { //checks the requestCode for the relevant permission
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q){
-                    checkBackgroundLocation();
-                }
-                else {
-                    LocationManager locationManager = (LocationManager) MainActivity.this.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-                    boolean gps, network;
-                    if (locationManager == null) {
-                        Toast.makeText(this, "Error with location manager", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    gps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-                    network = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-                    enabled = gps && network;
-                }
-            } else {
-                //the permission is not granted, the app cannot be used
-                Toast.makeText(this,"this app needs a location permission",Toast.LENGTH_SHORT).show();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    checkLocation();
-                }
-            }
-        }
-        if(requestCode == REQUEST_BACKGROUND_LOCATION) { //checks the requestCode for the relevant permission
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                LocationManager locationManager = (LocationManager) MainActivity.this.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-                boolean gps, network;
-                if (locationManager==null){
-                    Toast.makeText(this,"Error with location manager",Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                gps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-                network = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-                enabled=gps&&network;
-            } else {
-                //the permission is not granted, the app cannot be used
-                Toast.makeText(this,"this app needs a background location permission",Toast.LENGTH_SHORT).show();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    checkBackgroundLocation();
-                }
-            }
-        }
-    }
-
+    @SuppressLint("HardwareIds")
     @Override
     protected void onResume() {
         super.onResume();
+
+        /* Restoring values from SharedPreferences */
         SharedPreferences sharedPref = getSharedPreferences("SharedPref",MODE_PRIVATE);
         count = sharedPref.getInt("count", 0);
         countField.setText(String.valueOf(count));
+        Set<String> savedNames =sharedPref.getStringSet("devicesNames",null);
+        Set<String> savedData = sharedPref.getStringSet("devicesData", null);
+        if(savedNames != null && savedData != null) {
+            Iterator<String> iterator = savedNames.iterator();
+            Iterator<String> it = savedData.iterator();
+            while (iterator.hasNext() && it.hasNext()) {
+                savedDevice.put(iterator.next(), it.next());
+            }
+        }
+
+        /* Runtime permissions check */
+        BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        adapter = manager.getAdapter();
+        boolean gps=true,network=true,permission=true,permission2=true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            permission=ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            LocationManager locationManager = (LocationManager) MainActivity.this.getSystemService(Context.LOCATION_SERVICE);
+            gps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+            network = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permission2 = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        }
+        if (adapter == null || !adapter.isEnabled()||!(permission&&permission2&&gps&&network)) { //checking if bluetooth is turned off, then asks for activation
+            Intent backToPermissions= new Intent(MainActivity.this, PermissionsActivity.class);
+            startActivity(backToPermissions);
+        }
+
         scanner = adapter.getBluetoothLeScanner();
         String identifier=adapter.getAddress().split(":")[0];
         adapter.setName("SWbox_"+identifier);
-        if(enabled) {
-            scanner = adapter.getBluetoothLeScanner();
-            Toast.makeText(MainActivity.this, "start scanning", Toast.LENGTH_SHORT).show();
-            scanSettings = new ScanSettings.Builder();
-            scanSettings.setScanMode(SCAN_MODE_LOW_LATENCY);
-            loop.run();
-        }
-        else{
-            Toast.makeText(MainActivity.this.getApplicationContext(), "this app needs bluetooth and location services on to work", Toast.LENGTH_SHORT).show();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                checkLocation();
-            }
-        }
+        scanner = adapter.getBluetoothLeScanner();
+        Toast.makeText(MainActivity.this, "Scan d'appareils bluetooth démarré", Toast.LENGTH_SHORT).show();
+        scanSettings = new ScanSettings.Builder();
+        scanSettings.setScanMode(SCAN_MODE_LOW_LATENCY);
+        loop.run();
     }
 
     //scans continuously and stop/start scan every WAIT_PERIOD
@@ -262,9 +146,24 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onStop(){
-        Log.d("STOP","onstop");
+        Set<BluetoothDevice> s=scannedDevices.keySet();
+        for (BluetoothDevice b : s) {
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm", new Locale("fr", "FR"));
+            String[] output = formatter.format(new Date()).split("/");
+            savedDevice.put(b.getName(), b.getAddress() + "," + scannedDevices.get(b)[1] + "," + output[0] + "," + output[1] + "," + output[2] + "," + output[3] + "," + output[4]);
+        }
+        System.out.println("LIST OF SAVED BLE DEVICES:");
+        Set<String> names = savedDevice.keySet();
+        for (String name : names) {
+            System.out.println(name +","+savedDevice.get(name));
+        }
         SharedPreferences sharedPreferences = getSharedPreferences("SharedPref",MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
+        Set<String> devicesNames = new HashSet<>(savedDevice.keySet());
+        Set<String> devicesData=new HashSet<>(savedDevice.values());
+        editor.putStringSet("devicesNames", devicesNames);
+        editor.putStringSet("devicesData",devicesData);
+        editor.apply();
         editor.putInt("count", count);
         editor.apply();
 
@@ -281,9 +180,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
+        @SuppressLint("SetTextI18n")
         @Override
         public void onScanResult(int callbackType, ScanResult result) { //when a BLE device is scanned, add it to the list
             double dist;
+            int contagion=0;
             BluetoothDevice device=result.getDevice();
             int tx_estimation=-70; //tx power approximation for devices under API 26, based on a conversion between TX_POWER_HIGH (defined in advertising settings) and a value in dbm
             float environment=2;
@@ -296,29 +197,46 @@ public class MainActivity extends AppCompatActivity {
                     dist = Math.pow(10d, (tx_estimation - result.getRssi()) / (10 * environment));
                 }
 
-                Log.d("SCAN",scan.toString());
-                Log.d("DIST",String.valueOf(dist));
-
                 if (dist <= maxdistance) { //ignore devices past the maximum distance
-                    if (!scannedDevices.containsKey(device) || System.currentTimeMillis() - scannedDevices.get(device) > DELAY) { //ignore devices that have already been scanned for DELAY time
-                        scannedDevices.put(device, System.currentTimeMillis());
-                        nameField.append("name: " + device.getName() + " ,address: " + device.getAddress() + "\n");
+                    byte[] serviceData = scan.getServiceData(new ParcelUuid(SERVICE_UUID));
+                    if (serviceData != null && serviceData.length > 0) {
+                        contagion = serviceData[0];
+                        rcvField.setText("Lu " + contagion + " de " + device.getName());
+                    }
+                    if (contagion == 1 && !scannedDevices.containsKey(device)) {
+                        if (vibrator != null) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE));
+                            } else { //deprecated in API 26
+                                vibrator.vibrate(1000);
+                            }
+                        }
+                    }
+                    if (scannedDevices.containsKey(device) && System.currentTimeMillis() - scannedDevices.get(device)[0] > DELAY) {
+                        //permanently saves devices that have already been scanned for DELAY time
+                        SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm",new Locale("fr", "FR"));
+                        String[] output=formatter.format(new Date()).split("/");
+                        //format: nom: adresse,contagion,année,mois,jour,heure,minute
+                        savedDevice.put(device.getName(),device.getAddress()+","+scannedDevices.get(device)[1]+","+output[0]+","+output[1]+","+output[2]+","+output[3]+","+output[4]);
+                        scannedDevices.remove(device);
+                    }
+                    else if (!scannedDevices.containsKey(device)) {
+                        scannedDevices.put(device, new Long[]{System.currentTimeMillis(), (long) contagion});
                         count += 1;
                         countField.setText(Integer.toString(count));
+                    }
 
-                        byte[] serviceData = scan.getServiceData(new ParcelUuid(SERVICE_UUID));
-                        if (serviceData != null && serviceData.length > 0) {
-                            int contagion = serviceData[0];
-                            rcvField.setText("Lu " + contagion + " from " + device.getName());
-                            if (contagion == 1) {
-                                if (vibrator != null) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE));
-                                    } else { //deprecated in API 26
-                                        vibrator.vibrate(1000);
-                                    }
-                                }
-                            }
+                    nameField.setText("Appareils bluetooth scannés: \n");
+                    for (Iterator<BluetoothDevice> iterator = scannedDevices.keySet().iterator(); iterator.hasNext();) {
+                        BluetoothDevice bd = iterator.next();
+                        if(System.currentTimeMillis() - scannedDevices.get(bd)[0]>DELAY){
+                            SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm",new Locale("fr", "FR"));
+                            String[] output=formatter.format(new Date()).split("/");
+                            savedDevice.put(device.getName(),device.getAddress()+","+scannedDevices.get(bd)[1]+","+output[0]+","+output[1]+","+output[2]+","+output[3]+","+output[4]);
+                            iterator.remove();
+                        }
+                        else {
+                            nameField.append("nom: " + bd.getName() + " ,adresse: " + bd.getAddress() + "\n");
                         }
                     }
                 }
@@ -327,48 +245,41 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onScanFailed(int errorCode) {
-            Log.d("ERROR","scan failed");
+            System.out.println("ERREUR, scan échoué");
         }
     };
 
     public void sendMessage(View view) {
-        /*if(!adapter.isMultipleAdvertisementSupported()){
-            Toast.makeText(this,"ERROR ADVERTISING NOT SUPPORTED", Toast.LENGTH_SHORT).show();
+        advertiser = adapter.getBluetoothLeAdvertiser();
+        byte[] data= new byte[]{(byte) (positif.isChecked()?1:0)}; //add count after
+
+        AdvertiseSettings advertiseSettings = new AdvertiseSettings.Builder()
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH).build();
+
+        AdvertiseData advertiseData = new AdvertiseData.Builder()
+                .setIncludeDeviceName(true)
+                .addServiceData(new ParcelUuid(SERVICE_UUID), data).build();
+
+        if(advertiser!=null) {
+            advertiser.stopAdvertising(advertisingCallback);
+            advField.setText("envoie " +Arrays.toString(advertiseData.getServiceData().get(new ParcelUuid(SERVICE_UUID)))+" par advertising");
+            advertiser.startAdvertising(advertiseSettings, advertiseData, advertisingCallback);
         }
-        else {*/
-            advertiser = adapter.getBluetoothLeAdvertiser();
-
-            byte[] data= new byte[]{(byte) (positif.isChecked()?1:0)}; //add count after
-
-            AdvertiseSettings advertiseSettings = new AdvertiseSettings.Builder()
-                    .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-                    .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH).build();
-
-            AdvertiseData advertiseData = new AdvertiseData.Builder()
-                    .setIncludeDeviceName(true)
-                    .setIncludeTxPowerLevel(true)
-                    .addServiceData(new ParcelUuid(SERVICE_UUID), data).build();
-
-            if(advertiser!=null) {
-                advertiser.stopAdvertising(advertisingCallback);
-                advField.setText("advertising " +Arrays.toString(advertiseData.getServiceData().get(new ParcelUuid(SERVICE_UUID))));
-                advertiser.startAdvertising(advertiseSettings, advertiseData, advertisingCallback);
-            }
-            else{
-                advField.setText(R.string.adv_non_trouve);
-            }
-
+        else{
+            advField.setText(R.string.adv_non_trouve);
+        }
     }
 
     private AdvertiseCallback advertisingCallback = new AdvertiseCallback() {
         @Override
         public void onStartFailure(int errorCode) {
-            Log.d("ERROR", String.format("Advertisement failure (code %d)", errorCode));
+             Toast.makeText(MainActivity.this,String.format(new Locale("fr", "FR"),"ERREUR, L'advertisement a échoué (code %d)", errorCode),Toast.LENGTH_SHORT).show();
         }
 
         @Override
         public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-            Log.d("SUCCESS", "Advertisement started");
+            Toast.makeText(MainActivity.this,"SUCCES, L'advertisement a démarré",Toast.LENGTH_SHORT).show();
         }
     };
 }

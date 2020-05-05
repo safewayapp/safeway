@@ -3,4 +3,8 @@
     <string name="adv_non_trouve">advertiser non trouvé</string>
     <string name="advertising_test">Advertising test</string>
     <string name="received_text">Received text</string>
+    <string name="positif_au_covid_19">Positif au Covid-19</string>
+    <string name="start_advertising">Start advertising</string>
+    <string name="number_of_devices_scanned">Number of devices scanned</string>
+    <string name="device_name">device name</string>
 </resources>

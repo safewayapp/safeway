@@ -60,3 +60,7 @@ Lundi 4/05
 - Correction de problèmes de crash au démarrage
 - Ajout de vérification de permissions pour android 10, à vérifier
 - Meilleure gestion du cycle de vie: arrêt du scan quand l'application n'est plus au premier plan
+
+Mardi 5/05
+- Gestion différente du scan: affichage des appareils à proximité utilisant le service d'advertisement, actualisation de la liste toutes les 10s (les appareils plus à proximité ne sont plus affichés mais enregistrés dans une liste globale)
+- Mise au propre du code, séparation en deux activités
