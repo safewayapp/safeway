@@ -1,10 +1,14 @@
 <resources>
     <string name="app_name">Safeway</string>
-    <string name="adv_non_trouve">advertiser non trouvé</string>
-    <string name="advertising_test">Advertising test</string>
-    <string name="received_text">Received text</string>
+    <string name="adv_non_trouve" translatable="false">Advertiser non trouvé</string>
+    <string name="advertising_test">Données envoyées par advertising</string>
+    <string name="received_text">Données reçues</string>
     <string name="positif_au_covid_19">Positif au Covid-19</string>
-    <string name="start_advertising">Start advertising</string>
-    <string name="number_of_devices_scanned">Number of devices scanned</string>
-    <string name="device_name">device name</string>
+    <string name="start_advertising">Démarrer le scan et l\'advertising</string>
+    <string name="number_of_devices_scanned">Nombre d\'appareils scannés</string>
+    <string name="device_name">Nom de l\'appareil</string>
+    <string name="print_the_list_of_saved_devices">Afficher la liste des appareils rencontrés</string>
+    <string name="list">Liste des appareils: \n</string>
+    <string name="non_contamine">non contaminé</string>
+    <string name="contamine">contaminé</string>
 </resources>

@@ -29,6 +29,14 @@
                 android:layout_marginTop="40dp"
                 android:text="@string/start_advertising" />
 
+            <Button
+                android:id="@+id/printlist"
+                android:onClick="printList"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginTop="40dp"
+                android:text="@string/print_the_list_of_saved_devices" />
+
             <TextView
                 android:id="@+id/count"
                 android:layout_width="wrap_content"

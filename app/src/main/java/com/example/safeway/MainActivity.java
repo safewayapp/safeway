@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -152,18 +153,12 @@ public class MainActivity extends AppCompatActivity {
             String[] output = formatter.format(new Date()).split("/");
             savedDevice.put(b.getName(), b.getAddress() + "," + scannedDevices.get(b)[1] + "," + output[0] + "," + output[1] + "," + output[2] + "," + output[3] + "," + output[4]);
         }
-        System.out.println("LIST OF SAVED BLE DEVICES:");
-        Set<String> names = savedDevice.keySet();
-        for (String name : names) {
-            System.out.println(name +","+savedDevice.get(name));
-        }
         SharedPreferences sharedPreferences = getSharedPreferences("SharedPref",MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         Set<String> devicesNames = new HashSet<>(savedDevice.keySet());
         Set<String> devicesData=new HashSet<>(savedDevice.values());
         editor.putStringSet("devicesNames", devicesNames);
         editor.putStringSet("devicesData",devicesData);
-        editor.apply();
         editor.putInt("count", count);
         editor.apply();
 
@@ -221,9 +216,20 @@ public class MainActivity extends AppCompatActivity {
                         scannedDevices.remove(device);
                     }
                     else if (!scannedDevices.containsKey(device)) {
-                        scannedDevices.put(device, new Long[]{System.currentTimeMillis(), (long) contagion});
-                        count += 1;
-                        countField.setText(Integer.toString(count));
+                        Set<BluetoothDevice> names=scannedDevices.keySet();
+                        boolean nameInside=false;
+                        for (BluetoothDevice bd : names) {
+                            if (bd.getName().equals(device.getName())) {
+                                nameInside=true;
+                            }
+                        }
+                        if(!nameInside) {
+                            scannedDevices.put(device, new Long[]{System.currentTimeMillis(), (long) contagion});
+                            if (!savedDevice.containsKey(device.getName())) {
+                                count += 1;
+                                countField.setText(Integer.toString(count));
+                            }
+                        }
                     }
 
                     nameField.setText("Appareils bluetooth scannés: \n");
@@ -250,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
     public void sendMessage(View view) {
+        loop.run();
         advertiser = adapter.getBluetoothLeAdvertiser();
         byte[] data= new byte[]{(byte) (positif.isChecked()?1:0)}; //add count after
 
@@ -282,4 +289,32 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this,"SUCCES, L'advertisement a démarré",Toast.LENGTH_SHORT).show();
         }
     };
+
+    public void printList(View view) {
+        Toast.makeText(this,"stopping scan and printing list",Toast.LENGTH_SHORT).show();
+        handler.removeCallbacks(loop);
+        scanner.stopScan(scanCallback);
+
+        //updating the saved devices list
+        Set<BluetoothDevice> s=scannedDevices.keySet();
+        for (BluetoothDevice b : s) {
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm", new Locale("fr", "FR"));
+            String[] output = formatter.format(new Date()).split("/");
+            savedDevice.put(b.getName(), b.getAddress() + "," + scannedDevices.get(b)[1] + "," + output[0] + "," + output[1] + "," + output[2] + "," + output[3] + "," + output[4]);
+        }
+
+        nameField.setText(R.string.list);
+        System.out.println(savedDevice.toString());
+        Set<String> names = savedDevice.keySet();
+        Collection<String> datas = savedDevice.values();
+        Iterator<String> it=names.iterator();
+        Iterator<String> it2=datas.iterator();
+        while(it.hasNext() && it2.hasNext()){
+            String name=it.next();
+            String data=it2.next();
+            //format: nom: adresse,contagion,année,mois,jour,heure,minute
+            String[] output=data.split(",");
+            nameField.append(name+" a dit "+(output[1].equals("0")? "non contaminé": "contamine") + " le " + output[4] + " " + output[3] + " " + output[2] + " à " + output[5] + "h" + output[6] + "\n");
+        }
+    }
 }

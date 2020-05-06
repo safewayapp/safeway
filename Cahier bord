@@ -64,3 +64,9 @@ Lundi 4/05
 Mardi 5/05
 - Gestion différente du scan: affichage des appareils à proximité utilisant le service d'advertisement, actualisation de la liste toutes les 10s (les appareils plus à proximité ne sont plus affichés mais enregistrés dans une liste globale)
 - Mise au propre du code, séparation en deux activités
+
+Mercredi 6/05
+- Correction traductions
+- Amélioration du compte des appareils, compte chaque appareil une fois unique
+- Correction d'un bug qui comptait un appareil 2x si, dans un espace de temps réduit, il envoyait par advertising deux données différentes
+- Affichage à l'appui d'un bouton de la liste des appareils sauvegardés
