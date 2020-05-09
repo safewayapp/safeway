@@ -20,6 +20,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -32,11 +35,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,10 +49,6 @@ import java.util.UUID;
 import static android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY;
 
 public class MainActivity extends AppCompatActivity {
-    long WAIT_PERIOD = 25*60*1000; //25 minutes, scanning time
-    long DELAY=10*1000;//10 seconds, wait time for devices that have already been scanned
-
-    static int maxdistance=25; //distance for scan
     BluetoothAdapter adapter;
     BluetoothLeScanner scanner;
     BluetoothLeAdvertiser advertiser;
@@ -70,7 +67,11 @@ public class MainActivity extends AppCompatActivity {
     Handler handler;
     Vibrator vibrator;
 
-
+    public static final long WAIT_PERIOD = 25*60*1000; //25 minutes, scanning time
+    public static final long DELAY=10*1000;//10 seconds, wait time for devices that have already been scanned
+    public static final int SCAN_DIST=10; //distance for scan
+    public static final double VIBRATE_DIST=3.5;
+    public static final double SOUND_DIST=1.5;
     public static final UUID SERVICE_UUID = UUID.fromString("0000483e-0000-1000-8000-00805f9b34fb"); //UUID for advertising
 
     @Override
@@ -81,6 +82,7 @@ public class MainActivity extends AppCompatActivity {
         handler=new Handler();
         vibrator= (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
 
+        /* fields from view */
         positif=findViewById(R.id.contagion);
         countField=findViewById(R.id.count);
         nameField=findViewById(R.id.name);
@@ -125,17 +127,19 @@ public class MainActivity extends AppCompatActivity {
             startActivity(backToPermissions);
         }
 
-        scanner = adapter.getBluetoothLeScanner();
+        /* sets the device name */
         String identifier=adapter.getAddress().split(":")[0];
         adapter.setName("SWbox_"+identifier);
         scanner = adapter.getBluetoothLeScanner();
+
+        /* starts scanning */
         Toast.makeText(MainActivity.this, "Scan d'appareils bluetooth démarré", Toast.LENGTH_SHORT).show();
         scanSettings = new ScanSettings.Builder();
         scanSettings.setScanMode(SCAN_MODE_LOW_LATENCY);
         loop.run();
     }
 
-    //scans continuously and stop/start scan every WAIT_PERIOD
+    /* scans continuously and stop/start scan every WAIT_PERIOD -> counters Android rule to stop scan after 30 continuous min */
     Runnable loop = new Runnable() {
         @Override
         public void run() {
@@ -147,12 +151,15 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onStop(){
+        /* saves the scanned devices in the saved devices list */
         Set<BluetoothDevice> s=scannedDevices.keySet();
         for (BluetoothDevice b : s) {
             SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm", new Locale("fr", "FR"));
             String[] output = formatter.format(new Date()).split("/");
             savedDevice.put(b.getName(), b.getAddress() + "," + scannedDevices.get(b)[1] + "," + output[0] + "," + output[1] + "," + output[2] + "," + output[3] + "," + output[4]);
         }
+
+        /* saves the count and saved devices list */
         SharedPreferences sharedPreferences = getSharedPreferences("SharedPref",MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         Set<String> devicesNames = new HashSet<>(savedDevice.keySet());
@@ -162,15 +169,19 @@ public class MainActivity extends AppCompatActivity {
         editor.putInt("count", count);
         editor.apply();
 
+        /* resets text fields */
+        advField.setText(R.string.advertising_test);
+        rcvField.setText(R.string.received_text);
+        nameField.setText(R.string.device_name);
+
+        /* stops scanning and advertising */
         handler.removeCallbacks(loop);
         scanner.stopScan(scanCallback);
 
-        if (vibrator != null) {
-            vibrator.cancel();
-        }
         if(advertiser!=null) {
             advertiser.stopAdvertising(advertisingCallback);
         }
+
         super.onStop();
     }
 
@@ -178,62 +189,63 @@ public class MainActivity extends AppCompatActivity {
         @SuppressLint("SetTextI18n")
         @Override
         public void onScanResult(int callbackType, ScanResult result) { //when a BLE device is scanned, add it to the list
-            double dist;
-            int contagion=0;
+            double dist; //distance between the two devices
+            int contagion=0; //data received from advertising
             BluetoothDevice device=result.getDevice();
-            int tx_estimation=-70; //tx power approximation for devices under API 26, based on a conversion between TX_POWER_HIGH (defined in advertising settings) and a value in dbm
-            float environment=2;
+            int tx_estimation=-68; //tx power approximation for devices under API 26, based on a conversion between TX_POWER_HIGH (defined in advertising settings) and a value in dbm
+           // float environment=2; //approximation for the environment, 2 is the value for outside
             ScanRecord scan=result.getScanRecord();
 
             if(scan!=null && scan.getDeviceName()!=null && scan.getDeviceName().contains("SWbox")) {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    dist = Math.pow(10d, (result.getTxPower() - result.getRssi()) / (10 * environment));
+                    double ratio = result.getRssi()*1.0/tx_estimation; //result.getTxPower();
+                    dist =  (0.89976)*Math.pow(ratio,7.7095) + 0.111;
+                    //dist = Math.pow(10d, (result.getTxPower() - result.getRssi()) / (10 * environment));
                 } else {
-                    dist = Math.pow(10d, (tx_estimation - result.getRssi()) / (10 * environment));
+                    double ratio = result.getRssi()*1.0/tx_estimation;
+                    dist =  (0.89976)*Math.pow(ratio,7.7095) + 0.111;
                 }
+                if (dist <= SCAN_DIST) { //ignore devices past the maximum distance
+                    byte[] serviceData = scan.getServiceData(new ParcelUuid(SERVICE_UUID)); //get data from advertising
 
-                if (dist <= maxdistance) { //ignore devices past the maximum distance
-                    byte[] serviceData = scan.getServiceData(new ParcelUuid(SERVICE_UUID));
                     if (serviceData != null && serviceData.length > 0) {
-                        contagion = serviceData[0];
+                        contagion = serviceData[0]; //set contagion field
                         rcvField.setText("Lu " + contagion + " de " + device.getName());
                     }
-                    if (contagion == 1 && !scannedDevices.containsKey(device)) {
+
+                    if (contagion == 1 && !scannedDevices.containsKey(device) && dist <= VIBRATE_DIST) {
+                        //the first time a device is scanned, if it advertises 1 and is close, the phone vibrates
                         if (vibrator != null) {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE));
+                                vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
                             } else { //deprecated in API 26
-                                vibrator.vibrate(1000);
+                                vibrator.vibrate(500);
                             }
                         }
+                        if(dist<=SOUND_DIST){ //if it's really close, the phone also rings a notification
+                            Uri notification =  RingtoneManager.getActualDefaultRingtoneUri(MainActivity.this,RingtoneManager.TYPE_NOTIFICATION);
+                            Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), notification);
+                            r.play();
+                            //r.stop();
+                        }
                     }
-                    if (scannedDevices.containsKey(device) && System.currentTimeMillis() - scannedDevices.get(device)[0] > DELAY) {
-                        //permanently saves devices that have already been scanned for DELAY time
+
+                    if (!scannedDevices.containsKey(device)) { //if a device has not already been scanned
+                        scannedDevices.put(device, new Long[]{System.currentTimeMillis(), (long) contagion});
+                        if (!savedDevice.containsKey(device.getName())) { //if the device has not been saved we increase the count
+                            count += 1;
+                            countField.setText(Integer.toString(count));
+                        }
+                    }
+                    else if (scannedDevices.containsKey(device) && System.currentTimeMillis() - scannedDevices.get(device)[0] > DELAY) { //permanently saves devices that have already been scanned for DELAY time
                         SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm",new Locale("fr", "FR"));
                         String[] output=formatter.format(new Date()).split("/");
-                        //format: nom: adresse,contagion,année,mois,jour,heure,minute
                         savedDevice.put(device.getName(),device.getAddress()+","+scannedDevices.get(device)[1]+","+output[0]+","+output[1]+","+output[2]+","+output[3]+","+output[4]);
                         scannedDevices.remove(device);
                     }
-                    else if (!scannedDevices.containsKey(device)) {
-                        Set<BluetoothDevice> names=scannedDevices.keySet();
-                        boolean nameInside=false;
-                        for (BluetoothDevice bd : names) {
-                            if (bd.getName().equals(device.getName())) {
-                                nameInside=true;
-                            }
-                        }
-                        if(!nameInside) {
-                            scannedDevices.put(device, new Long[]{System.currentTimeMillis(), (long) contagion});
-                            if (!savedDevice.containsKey(device.getName())) {
-                                count += 1;
-                                countField.setText(Integer.toString(count));
-                            }
-                        }
-                    }
 
                     nameField.setText("Appareils bluetooth scannés: \n");
-                    for (Iterator<BluetoothDevice> iterator = scannedDevices.keySet().iterator(); iterator.hasNext();) {
+                    for (Iterator<BluetoothDevice> iterator = scannedDevices.keySet().iterator(); iterator.hasNext();) { //print every devices nearby and saves the ones scanned for more than DELAY time
                         BluetoothDevice bd = iterator.next();
                         if(System.currentTimeMillis() - scannedDevices.get(bd)[0]>DELAY){
                             SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm",new Locale("fr", "FR"));
@@ -242,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
                             iterator.remove();
                         }
                         else {
-                            nameField.append("nom: " + bd.getName() + " ,adresse: " + bd.getAddress() + "\n");
+                            nameField.append("nom: " + bd.getName() + ", adresse: " + bd.getAddress() + "\n");
                         }
                     }
                 }
@@ -256,9 +268,11 @@ public class MainActivity extends AppCompatActivity {
     };
 
     public void sendMessage(View view) {
-        loop.run();
-        advertiser = adapter.getBluetoothLeAdvertiser();
-        byte[] data= new byte[]{(byte) (positif.isChecked()?1:0)}; //add count after
+        BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        adapter = manager.getAdapter();
+        advertiser = adapter.getBluetoothLeAdvertiser(); //get the advertiser
+
+        byte[] data= new byte[]{(byte) (positif.isChecked()?1:0)}; //advertising data
 
         AdvertiseSettings advertiseSettings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
@@ -270,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
 
         if(advertiser!=null) {
             advertiser.stopAdvertising(advertisingCallback);
-            advField.setText("envoie " +Arrays.toString(advertiseData.getServiceData().get(new ParcelUuid(SERVICE_UUID)))+" par advertising");
+            advField.setText("envoie " + Arrays.toString(advertiseData.getServiceData().get(new ParcelUuid(SERVICE_UUID))) + " par advertising");
             advertiser.startAdvertising(advertiseSettings, advertiseData, advertisingCallback);
         }
         else{
@@ -291,11 +305,16 @@ public class MainActivity extends AppCompatActivity {
     };
 
     public void printList(View view) {
+        /* stops scanning and advertising */
         Toast.makeText(this,"stopping scan and printing list",Toast.LENGTH_SHORT).show();
         handler.removeCallbacks(loop);
         scanner.stopScan(scanCallback);
 
-        //updating the saved devices list
+        if(advertiser!=null) {
+            advertiser.stopAdvertising(advertisingCallback);
+        }
+
+        /* saves the scanned devices in the saved devices list */
         Set<BluetoothDevice> s=scannedDevices.keySet();
         for (BluetoothDevice b : s) {
             SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd/HH/mm", new Locale("fr", "FR"));
@@ -303,18 +322,9 @@ public class MainActivity extends AppCompatActivity {
             savedDevice.put(b.getName(), b.getAddress() + "," + scannedDevices.get(b)[1] + "," + output[0] + "," + output[1] + "," + output[2] + "," + output[3] + "," + output[4]);
         }
 
-        nameField.setText(R.string.list);
-        System.out.println(savedDevice.toString());
-        Set<String> names = savedDevice.keySet();
-        Collection<String> datas = savedDevice.values();
-        Iterator<String> it=names.iterator();
-        Iterator<String> it2=datas.iterator();
-        while(it.hasNext() && it2.hasNext()){
-            String name=it.next();
-            String data=it2.next();
-            //format: nom: adresse,contagion,année,mois,jour,heure,minute
-            String[] output=data.split(",");
-            nameField.append(name+" a dit "+(output[1].equals("0")? "non contaminé": "contamine") + " le " + output[4] + " " + output[3] + " " + output[2] + " à " + output[5] + "h" + output[6] + "\n");
-        }
+        /* Calls the print activity */
+        Intent it = new Intent(MainActivity.this, PrintActivity.class);
+        it.putExtra("deviceList",savedDevice);
+        startActivity(it);
     }
 }

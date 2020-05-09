@@ -15,8 +15,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 public class PermissionsActivity extends Activity {
     private static final int ENABLE_BLUETOOTH = 1;
@@ -53,10 +51,9 @@ public class PermissionsActivity extends Activity {
 
     @RequiresApi(23)
     public void checkLocation(){
-        boolean permission= ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!permission) { //permission for location is not granted
+        if (this.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { //permission for location is not granted
             //requests the permission to the user
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
         }
         else { //permission is already granted, checking if location is turned on
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){ //if phone is android 10 or higher, also checks for background permission
@@ -78,10 +75,9 @@ public class PermissionsActivity extends Activity {
 
     @RequiresApi(29)
     public void checkBackgroundLocation(){
-        boolean permission=ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!permission) { //permission for background location is not granted
+        if (this.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) { //permission for background location is not granted
             //requests the permission to the user
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, REQUEST_BACKGROUND_LOCATION);
+            requestPermissions(new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, REQUEST_BACKGROUND_LOCATION);
         }
         else { //permission is already granted, checking if location is turned on
             boolean gps, network;

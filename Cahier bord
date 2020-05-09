@@ -70,3 +70,11 @@ Mercredi 6/05
 - Amélioration du compte des appareils, compte chaque appareil une fois unique
 - Correction d'un bug qui comptait un appareil 2x si, dans un espace de temps réduit, il envoyait par advertising deux données différentes
 - Affichage à l'appui d'un bouton de la liste des appareils sauvegardés
+
+Jeudi 7/05
+- Annulation de la correction précédente, trop coûteuse pour un cas très rare et peu important
+- Correction de gestion de permissions pour android 10, test réussi
+
+Vendredi 8/05
+- Correction du calcul de distance pour les téléphones au dessus de l'API 26, suspecté incorrect
+- Ajout de distances différentes pour faire vibrer et lancer une notification sur le téléphone
